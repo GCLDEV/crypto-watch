@@ -173,7 +173,7 @@ export const CryptoRow = memo(function CryptoRow({ coin }: CryptoRowProps) {
           <MiniAreaChart 
             data={chartData}
             color={chartColor}
-            height={50}
+            height={45}
           />
         </View>
 
