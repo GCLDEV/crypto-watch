@@ -1,10 +1,7 @@
 import { useCallback, useEffect, useRef } from 'react';
+import { ENV, logEnvironmentConfig, validateEnvironment } from '../config/environment';
 import { processBinanceData, useCryptoStore } from '../stores/useCryptoStore';
 import { BinanceMiniTicker } from '../types/binance';
-
-const BINANCE_WS_URL = 'wss://stream.binance.com:9443/ws/!miniTicker@arr';
-const RECONNECT_INTERVAL = 5000;
-const MAX_RECONNECT_ATTEMPTS = 5;
 
 export function useBinanceWebSocket() {
   const ws = useRef<WebSocket | null>(null);
@@ -26,10 +23,12 @@ export function useBinanceWebSocket() {
     });
 
     try {
-      ws.current = new WebSocket(BINANCE_WS_URL);
+      ws.current = new WebSocket(ENV.BINANCE_WS_URL);
 
       ws.current.onopen = () => {
-        console.log('✅ WebSocket conectado ao Binance');
+        if (ENV.ENABLE_LOGS) {
+          console.log('✅ WebSocket conectado ao Binance');
+        }
         reconnectAttempts.current = 0;
         setConnectionStatus({
           isConnected: true,
@@ -53,7 +52,9 @@ export function useBinanceWebSocket() {
             }
           });
         } catch (error) {
-          console.error('❌ Erro ao processar dados do WebSocket:', error);
+          if (ENV.ENABLE_LOGS || ENV.DEBUG_MODE) {
+            console.error('❌ Erro ao processar dados do WebSocket:', error);
+          }
         }
       };
 
@@ -64,14 +65,16 @@ export function useBinanceWebSocket() {
           error: null
         });
 
-        if (!isManualClose.current && reconnectAttempts.current < MAX_RECONNECT_ATTEMPTS) {
-          console.log(`🔄 WebSocket desconectado. Tentativa de reconexão ${reconnectAttempts.current + 1}/${MAX_RECONNECT_ATTEMPTS}`);
+        if (!isManualClose.current && reconnectAttempts.current < ENV.MAX_RECONNECT_ATTEMPTS) {
+          if (ENV.ENABLE_LOGS) {
+            console.log(`🔄 WebSocket desconectado. Tentativa de reconexão ${reconnectAttempts.current + 1}/${ENV.MAX_RECONNECT_ATTEMPTS}`);
+          }
           reconnectAttempts.current++;
           
           reconnectTimeoutId.current = setTimeout(() => {
             connect();
-          }, RECONNECT_INTERVAL);
-        } else if (reconnectAttempts.current >= MAX_RECONNECT_ATTEMPTS) {
+          }, ENV.RECONNECT_INTERVAL);
+        } else if (reconnectAttempts.current >= ENV.MAX_RECONNECT_ATTEMPTS) {
           setConnectionStatus({
             isConnected: false,
             isConnecting: false,
@@ -81,7 +84,9 @@ export function useBinanceWebSocket() {
       };
 
       ws.current.onerror = (error) => {
-        console.error('❌ Erro no WebSocket:', error);
+        if (ENV.ENABLE_LOGS || ENV.DEBUG_MODE) {
+          console.error('❌ Erro no WebSocket:', error);
+        }
         setConnectionStatus({
           isConnected: false,
           isConnecting: false,
@@ -89,7 +94,9 @@ export function useBinanceWebSocket() {
         });
       };
     } catch (error) {
-      console.error('❌ Erro ao criar WebSocket:', error);
+      if (ENV.ENABLE_LOGS || ENV.DEBUG_MODE) {
+        console.error('❌ Erro ao criar WebSocket:', error);
+      }
       setConnectionStatus({
         isConnected: false,
         isConnecting: false,
@@ -126,6 +133,10 @@ export function useBinanceWebSocket() {
   }, [connect, disconnect]);
 
   useEffect(() => {
+    // Validar configuração de ambiente
+    validateEnvironment();
+    logEnvironmentConfig();
+    
     isManualClose.current = false;
     connect();
 
